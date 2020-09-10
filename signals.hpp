@@ -22,112 +22,12 @@
 __STD_NAMESPACE_BEG
 
 namespace signals {
+
+// forwards
+struct connection;
+struct scoped_connection;
+
 namespace details {
-
-/*************************************************************************************************/
-
-/** Aggregation that ignores slot return type and value, returning
-    void. This is the default aggregation used by a signal's `emit()`
-    function. */
-template<typename Result>
-struct Void {
-    /** Discards slot return value */
-    void aggregate(Result) {}
-    /** @returns nothing, irrespective of the slot return type */
-    void get() {}
-};
-
-/** Specialisation of Void for void slots. */
-template<>
-struct Void<void> {
-    /** Does nothing */
-    void aggregate() {}
-    /** @returns nothing */
-    void get() {}
-};
-
-/** Aggregation that returns the value returned by the last slot
-    called in a signal emission. If a signal has no connected slots,
-    the return value is a value-initialized `Result`. */
-template<typename Result>
-struct Last {
-    /** Keeps hold of only the latest slot return value. */
-    void aggregate(Result r) { m_latest = std::move(r); }
-    /** @returns the return value of the last slot called from the
-        signal emission. */
-    Result get() { return std::move(m_latest); }
-
-private:
-    Result m_latest{};  // Ensure value-initialisation
-};
-
-/** Aggregation that collates the values returned by each slot in a
-    container. This template class is suitable for most standard
-    library containers. By default, a `std::vector` is used.  If a
-    signal has no connected slots, the return value is an empty
-    container. */
-template<
-     typename Result
-    ,template<typename, typename> class Container = std::vector
-    ,typename Allocator = std::allocator<Result>
-    ,typename Containr = Container<Result, Allocator>
-
->
-struct Collation {
-    /** Append the slot return value within the container. */
-    void aggregate(Result r) { m_result.insert(m_result.end(), std::move(r)); }
-    /** @returns the container of collated slot return values. */
-    Containr get() { return std::move(m_result); }
-
-private:
-    Containr m_result;
-};
-
-/** Aggregation that counts the number of slots called. */
-template<typename Result>
-struct Counter {
-    /** Increment counter and discard slots return value */
-    void aggregate(Result r) { ++m_result; }
-    /** @returns the number of slots called. */
-    std::size_t get() const { return m_result; }
-
-private:
-    std::size_t m_result{};
-};
-
-/** Aggregation that counts the number of slots called,
-    specialised for void slots. */
-template<>
-struct Counter<void> {
-    /** Increment counter */
-    void aggregate() { ++m_result; }
-    /** @returns the number of slots called. */
-    std::size_t get() const { return m_result; }
-
-private:
-    std::size_t m_result{};
-};
-
-/*************************************************************************************************/
-
-/** Continue signal emission regardless of the slot return value */
-template<typename Result>
-struct All {
-    bool operator()(const Result &) { return true; }
-};
-
-/** Continue signal emission -- specialisation for void slots. */
-template<>
-struct All<void> {
-    bool operator()() const { return true; }
-};
-
-/** Continue signal emission iff the slot returns a result that
-    (when converted to a boolean) equals `T`. */
-template<typename Result, bool T = true>
-struct While {
-    bool operator()(const Result & result) const { return result == T; }
-};
 
 /*************************************************************************************************/
 
@@ -196,7 +96,12 @@ struct signal_base {
     }
     bool disconnect(void* id);
 
+    bool valid(const connection &con) const { return connected(con); }
+    bool valid(const scoped_connection &con) const { return connected(con); }
     bool valid(const connection_handler &con) const { return connected(con); }
+
+    bool connected(const connection &con) const;
+    bool connected(const scoped_connection &con) const;
     bool connected(const connection_handler &con) const {
         if ( con.first != this ) {
             return false;
@@ -344,12 +249,121 @@ private:
 
 /*************************************************************************************************/
 
+/** Continue signal emission regardless of the slot return value */
+template<typename Result>
+struct condition_all {
+    bool operator()(const Result &) { return true; }
+};
+
+/** Continue signal emission -- specialisation for void slots. */
+template<>
+struct condition_all<void> {
+    bool operator()() const { return true; }
+};
+
+/** Continue signal emission if the slot returns a result that
+    (when converted to a boolean) equals `T`. */
+template<typename Result, bool T = true>
+struct condition_while {
+    bool operator()(const Result & result) const { return result == T; }
+};
+
+/*************************************************************************************************/
+
+/** Aggregation that ignores slot return type and value, returning
+    void. This is the default aggregation used by a signal's `emit()`
+    function. */
+template<typename Result>
+struct aggregation_void {
+    /** Discards slot return value */
+    void aggregate(Result) {}
+    /** @returns nothing, irrespective of the slot return type */
+    void get() {}
+};
+
+/** Specialisation of Void for void slots. */
+template<>
+struct aggregation_void<void> {
+    /** Does nothing */
+    void aggregate() {}
+    /** @returns nothing */
+    void get() {}
+};
+
+/** Aggregation that returns the value returned by the last slot
+    called in a signal emission. If a signal has no connected slots,
+    the return value is a value-initialized `Result`. */
+template<typename Result>
+struct aggregation_last {
+    /** Keeps hold of only the latest slot return value. */
+    void aggregate(Result r) { m_latest = std::move(r); }
+    /** @returns the return value of the last slot called from the
+        signal emission. */
+    Result get() { return std::move(m_latest); }
+
+private:
+    Result m_latest{};  // Ensure value-initialisation
+};
+
+/** Aggregation that collates the values returned by each slot in a
+    container. This template class is suitable for most standard
+    library containers. By default, a `std::vector` is used.  If a
+    signal has no connected slots, the return value is an empty
+    container. */
+template<
+    typename Result
+    ,template<typename, typename> class Container = std::vector
+    ,typename Allocator = std::allocator<Result>
+    ,typename Cont = Container<Result, Allocator>
+
+>
+struct aggregation_collation {
+    /** Append the slot return value within the container. */
+    void aggregate(Result r) { m_result.insert(m_result.end(), std::move(r)); }
+    /** @returns the container of collated slot return values. */
+    Cont get() { return std::move(m_result); }
+
+private:
+    Cont m_result;
+};
+
+/** Aggregation that counts the number of slots called. */
+template<typename Result>
+struct aggregation_counter {
+    /** Increment counter and discard slots return value */
+    void aggregate(Result) { ++m_result; }
+    /** @returns the number of slots called. */
+    std::size_t get() const { return m_result; }
+
+private:
+    std::size_t m_result{};
+};
+
+/** Aggregation that counts the number of slots called,
+    specialised for void slots. */
+template<>
+struct aggregation_counter<void> {
+    /** Increment counter */
+    void aggregate() { ++m_result; }
+    /** @returns the number of slots called. */
+    std::size_t get() const { return m_result; }
+
+private:
+    std::size_t m_result{};
+};
+
+/*************************************************************************************************/
+
 using connection_handler = details::signal_base::connection_handler;
 
 struct connection {
+    friend details::signal_base;
+
     connection(connection_handler con)
         :m_con{std::move(con)}
     {}
+
+    bool connected() const { return m_con.first->connected(m_con.second); }
 
     bool disconnect() { return m_con.first->disconnect(m_con.second); }
 
@@ -358,17 +372,29 @@ private:
 };
 
 struct scoped_connection {
+    friend details::signal_base;
+
     scoped_connection(connection_handler con)
         :m_con{con}
     {}
 
     ~scoped_connection() { disconnect(); }
 
+    bool connected() const { return m_con.first->connected(m_con.second); }
+
     bool disconnect() { return m_con.first->disconnect(m_con.second); }
 
 private:
     connection_handler m_con;
 };
+
+namespace details {
+
+bool signal_base::connected(const connection &con) const { return connected(con.m_con); }
+
+bool signal_base::connected(const scoped_connection &con) const { return connected(con.m_con); }
+
+} // ns details
 
 /*************************************************************************************************/
 
@@ -471,7 +497,7 @@ struct signal<Result(Args...)>: details::signal_base {
         @returns an identifier for the newly added signal-slot connection. */
     template<typename C>
     connection_handler connect(const C & obj, Result (C::*mf)(Args...)) {
-        return connect([&obj, mf](Args... args) { return (obj .* mf)(args...); });
+        return connect([&obj, mf](Args... args) { return (obj.*mf)(args...); });
     }
 
     /** Add a connection from this signal to a member function of the
@@ -564,8 +590,12 @@ struct signal<Result(Args...)>: details::signal_base {
         @returns the output of the aggregation's `get()` function.
     */
     template<
-         typename Aggregation = details::Void<Result>
-        ,typename Controller = details::All<Result>
+         typename Aggregation = typename std::conditional<
+              std::is_same<typename std::remove_cv<Result>::type, void>::value
+             ,aggregation_void<Result>
+             ,aggregation_last<Result>
+         >::type
+        ,typename Controller = condition_all<Result>
     >
     auto emit(
          Args... args
@@ -611,8 +641,12 @@ struct signal<Result(Args...)>: details::signal_base {
     }
 
     template<
-         typename Aggregation = details::Void<Result>
-        ,typename Controller = details::All<Result>
+         typename Aggregation = typename std::conditional<
+             std::is_same<typename std::remove_cv<Result>::type, void>::value
+            ,aggregation_void<Result>
+            ,aggregation_last<Result>
+         >::type
+        ,typename Controller = condition_all<Result>
     >
     auto operator()(
          Args... args

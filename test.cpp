@@ -142,8 +142,7 @@ public:
         sig_vector.connect(handler1);
         sig_vector.connect(handler42);
         sig_vector.connect(handler777);
-        std::vector<int> results =
-            sig_vector.emit<signals::details::Collation<int>>();
+        std::vector<int> results = sig_vector.emit<signals::aggregation_collation<int>>();
         const std::vector<int> reference = { 777, 42, 1, 42, 777, };
         assert(results == reference);
     }
@@ -180,7 +179,7 @@ public:
         sig_vector.connect(handler42);
         sig_vector.connect(handler777);
         std::vector<std::unique_ptr<int>> results =
-        sig_vector.emit<signals::details::Collation<std::unique_ptr<int>>>();
+        sig_vector.emit<signals::aggregation_collation<std::unique_ptr<int>>>();
         std::vector<std::unique_ptr<int>> reference;
         reference.push_back(std::unique_ptr<int>(new int(777)));
         reference.push_back(std::unique_ptr<int>(new int(42)));
@@ -209,9 +208,10 @@ public:
         sig_until0.connect(self, &TestAggregationUntil0::handler_false);
         sig_until0.connect(self, &TestAggregationUntil0::handler_abort);
         assert(!self.check1 && !self.check2);
-        const bool result =
-            sig_until0.emit<signals::details::Last<bool>,
-                signals::details::While<bool, true>>();
+        const bool result = sig_until0.emit<
+             signals::aggregation_last<bool>
+            ,signals::condition_while<bool, true>
+        >();
         assert(!result && self.check1 && self.check2);
     }
 };
@@ -231,9 +231,10 @@ public:
         sig_while0.connect(self, &TestAggregationWhile0::handler_1);
         sig_while0.connect(self, &TestAggregationWhile0::handler_abort);
         assert(!self.check1 && !self.check2);
-        const bool result =
-            sig_while0.emit<signals::details::Last<bool>,
-                signals::details::While<bool, false>>();
+        const bool result = sig_while0.emit<
+             signals::aggregation_last<bool>
+            ,signals::condition_while<bool, false>
+        >();
         assert(result == true && self.check1 && self.check2);
     }
 };
