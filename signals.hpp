@@ -585,10 +585,10 @@ struct signal<Result(Args...)>: details::signal_base {
         @returns the output of the aggregation's `get()` function.
     */
     template<
-         typename Aggregation = typename std::conditional<
-              std::is_same<typename std::remove_cv<Result>::type, void>::value
-             ,aggregation_void<Result>
-             ,aggregation_last<Result>
+         typename Aggregation = typename std::conditional
+         <   std::is_same<typename std::remove_cv<Result>::type, void>::value
+            ,aggregation_void<Result>
+            ,aggregation_last<Result>
          >::type
         ,typename Controller = condition_all<Result>
     >
@@ -602,9 +602,8 @@ struct signal<Result(Args...)>: details::signal_base {
         using Increment = details::ScopedIncrement<decltype(m_recursionDepth)>;
 
         if ( m_head ) {
-            bool ok = true;
             node_type *node = static_cast<node_type*>(static_cast<details::node_base*>(m_head.get())->next());
-            while ( node != m_head.get() && ok ) {
+            for ( bool ok = true; node != m_head.get() && ok; ) {
                 /* Increment the recursion counter to ensure that slots cannot
                    recursively delete connections from the ring (thereby
                    potentially invalidating this iteration), rather they only
@@ -636,8 +635,8 @@ struct signal<Result(Args...)>: details::signal_base {
     }
 
     template<
-         typename Aggregation = typename std::conditional<
-             std::is_same<typename std::remove_cv<Result>::type, void>::value
+         typename Aggregation = typename std::conditional
+         <   std::is_same<typename std::remove_cv<Result>::type, void>::value
             ,aggregation_void<Result>
             ,aggregation_last<Result>
          >::type

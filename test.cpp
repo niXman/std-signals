@@ -3,6 +3,8 @@
 
 #include <string>
 #include <stdexcept>
+#include <chrono>
+
 #include <cstdarg>
 #include <cassert>
 
@@ -24,13 +26,11 @@ static std::string string_printf(const char *format, ...) {
 }
 
 static uint64_t timestamp_benchmark() {
-    struct timespec tp = { 0, 0 };
-    if (__builtin_expect(clock_gettime(CLOCK_MONOTONIC, &tp) < 0, 0)) {
-        perror("failed in clock_gettime");
-        exit(-1);
-    }
-    uint64_t stamp = tp.tv_sec * 1000000000ULL + tp.tv_nsec;
-    return stamp;
+    std::uint64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::high_resolution_clock::now().time_since_epoch()
+    ).count();
+
+    return ns;
 }
 
 struct TestCounter {
@@ -308,13 +308,13 @@ static void bench_simple_signal() {
     const uint64_t start_counter = TestCounter::get();
     const uint64_t benchstart = timestamp_benchmark();
     uint64_t i;
-    for(i = 0; i < 9999999; i++) {
+    for(i = 0; i < 99999999; i++) {
         sig_increment.emit(nullptr, 1);
     }
     const uint64_t benchdone = timestamp_benchmark();
     const uint64_t end_counter = TestCounter::get();
     assert(end_counter - start_counter == i);
-    printf("OK\n  Benchmark: Simple::Signal: %fns per emission(size=%zu): ",
+    printf("OK\n  Benchmark: std-signal: %fns per emission(sizeof=%zu): ",
            size_t(benchdone - benchstart) * 1.0 / size_t(i),
            sizeof(sig_increment));
 }
@@ -324,13 +324,13 @@ static void bench_callback_loop() {
     const uint64_t start_counter = TestCounter::get();
     const uint64_t benchstart = timestamp_benchmark();
     uint64_t i;
-    for(i = 0; i < 9999999; i++) {
+    for(i = 0; i < 99999999; i++) {
         counter_increment(nullptr, 1);
     }
     const uint64_t benchdone = timestamp_benchmark();
     const uint64_t end_counter = TestCounter::get();
     assert(end_counter - start_counter == i);
-    printf("OK\n  Benchmark: callback loop: %fns per round: ",
+    printf("OK\n  Benchmark: std-signal loop: %fns per round: ",
            size_t(benchdone - benchstart) * 1.0 / size_t(i));
 }
 
@@ -474,11 +474,11 @@ int main() {
     TestScopedConnection::run();
     printf("OK\n");
 
-    printf("Signal/Benchmark: Simple::Signal: ");
+    printf("Signal/Benchmark: std-signal: ");
     bench_simple_signal();
     printf("OK\n");
 
-    printf("Signal/Benchmark: callback loop: ");
+    printf("Signal/Benchmark: std-signal loop: ");
     bench_callback_loop();
     printf("OK\n");
 
