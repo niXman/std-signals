@@ -3,6 +3,8 @@ Managed signals &amp; slots callback implementation for C++11 and higher
 
 Based on https://github.com/walker-zheng/code/blob/master/work/simplesignal2.cpp
 
+This implementation differs from the original one in that it provides an RAII handler `scoped_connection` instead of a primitive one.
+
 # Example
 ```cpp
 
