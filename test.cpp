@@ -2,6 +2,7 @@
 #include "signals.hpp"
 
 #include <string>
+#include <stdexcept>
 #include <cstdarg>
 #include <cassert>
 
