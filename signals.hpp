@@ -373,7 +373,7 @@ struct scoped_connection {
     friend details::signal_base;
 
     scoped_connection(connection_handler con)
-        :m_con{con}
+        :m_con{std::move(con)}
     {}
 
     ~scoped_connection() { disconnect(); }
