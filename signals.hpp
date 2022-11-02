@@ -86,6 +86,7 @@ struct signal_base {
         ,m_recursionDepth{}
         ,m_deactivations{}
     {}
+    virtual ~signal_base() = default;
 
     bool disconnect(const connection_handler &con) {
         if ( con.first != this ) {
@@ -124,8 +125,7 @@ struct node_base {
         :m_next{this}
         ,m_prev{this}
     {}
-
-    virtual ~node_base() {}
+    virtual ~node_base() = default;
 
     /** Insert `node` immediately before this node in the ring.
     @returns the inserted node */
@@ -208,9 +208,7 @@ struct node: node_base {
         :node_base{}
         ,m_function{std::move(f)}
     {}
-
-    /** Destructor */
-    virtual ~node() {}
+    virtual ~node() = default;
 
     /** @returns this node's function */
     const Func& function() const { return m_function; }
@@ -448,22 +446,19 @@ struct signal<Result(Args...)>: details::signal_base {
         :signal()
     { connect(std::move(f)); }
 
-    /** Destructor. */
-    ~signal() {
+    signal(const signal &) = delete;
+    
+    signal(signal &&) noexcept = default;
+
+    signal & operator=(const signal &) = delete;
+
+    virtual ~signal() {
         if ( m_head ) {
             while ( static_cast<node_type*>(m_head.get())->next() != m_head.get() ) {
                 disconnect(static_cast<node_type*>(m_head.get())->next());
             }
         }
     }
-
-    /** Copy constructor */
-    signal(const signal &) = delete;
-
-    /** Copy assignment operator */
-    signal & operator=(const signal &) = delete;
-
-    signal(signal &&) noexcept = default;
 
     /** Add a connection from this signal to the given slot. The slot
         can be a function, lambda expression, bind expression or another
