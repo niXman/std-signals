@@ -112,7 +112,7 @@ struct signal_base {
     }
     bool connected(void* id) const;
 
-    /** Inert entry point into connection ring */
+    /** Insert entry point into connection ring */
     std::unique_ptr<void, std::function<void(void*)>> m_head;
     /** Guard against iteration invalidation by slots that alter the Signal */
     mutable std::size_t m_recursionDepth;
