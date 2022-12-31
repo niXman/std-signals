@@ -447,7 +447,7 @@ struct signal<Result(Args...)>: details::signal_base {
     { connect(std::move(f)); }
 
     signal(const signal &) = delete;
-    
+
     signal(signal &&) noexcept = default;
 
     signal & operator=(const signal &) = delete;
